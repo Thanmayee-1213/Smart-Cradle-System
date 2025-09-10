@@ -1,0 +1,1092 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Baby Cry Classifier</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #ff6b6b, #ffa726);
+            color: white;
+            text-align: center;
+            padding: 30px;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .nav-tabs {
+            display: flex;
+            background: #f8f9fa;
+            border-bottom: 2px solid #e9ecef;
+        }
+
+        .nav-tab {
+            flex: 1;
+            padding: 15px 20px;
+            text-align: center;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            font-size: 1.1em;
+            font-weight: 600;
+            color: #666;
+            transition: all 0.3s ease;
+        }
+
+        .nav-tab.active {
+            background: white;
+            color: #667eea;
+            border-bottom: 3px solid #667eea;
+        }
+
+        .nav-tab:hover {
+            background: rgba(102, 126, 234, 0.1);
+        }
+
+        .tab-content {
+            display: none;
+            padding: 40px;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .control-section {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 30px;
+            border: 2px solid #e9ecef;
+        }
+
+        .toggle-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .toggle-switch {
+            position: relative;
+            width: 80px;
+            height: 40px;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 40px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 32px;
+            width: 32px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        input:checked + .slider {
+            background-color: #4CAF50;
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(40px);
+        }
+
+        .toggle-label {
+            font-size: 1.2em;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .recording-status {
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            margin-right: 10px;
+            transition: all 0.3s ease;
+        }
+
+        .status-off {
+            background-color: #dc3545;
+        }
+
+        .status-on {
+            background-color: #28a745;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.2); opacity: 0.7; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        .file-upload {
+            margin-top: 20px;
+            text-align: center;
+        }
+
+        .file-input-wrapper {
+            position: relative;
+            display: inline-block;
+            cursor: pointer;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 12px 30px;
+            border-radius: 25px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .file-input-wrapper:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .file-input-wrapper input {
+            position: absolute;
+            left: -9999px;
+        }
+
+        .predict-button {
+            background: linear-gradient(135deg, #ff6b6b, #ffa726);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 25px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            margin-left: 15px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .predict-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .predict-button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .results-section {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            border: 2px solid #e9ecef;
+            min-height: 200px;
+        }
+
+        .result-card {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+        }
+
+        .result-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .predicted-class {
+            font-size: 1.8em;
+            font-weight: bold;
+            text-transform: capitalize;
+        }
+
+        .confidence {
+            font-size: 1.2em;
+            background: rgba(255, 255, 255, 0.2);
+            padding: 8px 15px;
+            border-radius: 20px;
+        }
+
+        .probabilities {
+            margin-top: 20px;
+        }
+
+        .probability-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 10px 0;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 10px 15px;
+            border-radius: 10px;
+        }
+
+        .probability-bar {
+            width: 200px;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 0 15px;
+        }
+
+        .probability-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #ff6b6b, #ffa726);
+            transition: width 0.5s ease;
+        }
+
+        .feedback-section {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+
+        .feedback-question {
+            font-size: 1.1em;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+
+        .feedback-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .feedback-btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            min-width: 80px;
+        }
+
+        .feedback-btn.correct {
+            background: #28a745;
+            color: white;
+        }
+
+        .feedback-btn.incorrect {
+            background: #dc3545;
+            color: white;
+        }
+
+        .feedback-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+        }
+
+        .correct-class-selector {
+            margin-top: 15px;
+            text-align: center;
+        }
+
+        .correct-class-selector select {
+            padding: 8px 15px;
+            border-radius: 10px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            background: rgba(255, 255, 255, 0.9);
+            color: #333;
+            font-size: 1em;
+        }
+
+        .timestamp {
+            text-align: center;
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 0.9em;
+            margin-top: 15px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .loading::after {
+            content: '';
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #667eea;
+            border-radius: 50%;
+            border-top-color: transparent;
+            animation: spin 1s linear infinite;
+            margin-left: 10px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .error {
+            background: #dc3545;
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 10px 0;
+        }
+
+        .no-results {
+            text-align: center;
+            color: #666;
+            font-style: italic;
+            padding: 40px;
+        }
+
+        /* Statistics Styles */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            border: 2px solid #e9ecef;
+        }
+
+        .stat-card h3 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+        }
+
+        .stat-number {
+            font-size: 2.5em;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .stat-label {
+            color: #666;
+            font-size: 1em;
+        }
+
+        .chart-container {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            border: 2px solid #e9ecef;
+        }
+
+        .chart-container h3 {
+            color: #333;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .chart-wrapper {
+            position: relative;
+            height: 400px;
+        }
+
+        .stats-controls {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .stats-controls select {
+            padding: 10px 20px;
+            border-radius: 25px;
+            border: 2px solid #667eea;
+            background: white;
+            color: #333;
+            font-size: 1em;
+            cursor: pointer;
+        }
+
+        .feedback-success {
+            background: #28a745;
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 15px;
+            text-align: center;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🍼 Baby Cry Classifier</h1>
+            <p>Real-time AI-powered baby cry analysis and classification</p>
+        </div>
+        
+        <!-- Navigation Tabs -->
+        <div class="nav-tabs">
+            <button class="nav-tab active" onclick="showTab('classifier')">🎤 Classifier</button>
+            <button class="nav-tab" onclick="showTab('statistics')">📊 Statistics</button>
+        </div>
+        
+        <!-- Classifier Tab -->
+        <div id="classifier" class="tab-content active">
+            <!-- Real-time Recording Controls -->
+            <div class="control-section">
+                <h2 style="text-align: center; margin-bottom: 25px; color: #333;">Real-time Audio Classification</h2>
+                
+                <div class="toggle-container">
+                    <span class="toggle-label">Audio Recording</span>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="recordingToggle">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                
+                <div class="recording-status">
+                    <span class="status-indicator status-off" id="statusIndicator"></span>
+                    <span id="statusText">Recording Off</span>
+                </div>
+                
+                <!-- File Upload Option -->
+                <div class="file-upload">
+                    <label class="file-input-wrapper">
+                        <input type="file" id="audioFile" accept="audio/*">
+                        📁 Upload Audio File
+                    </label>
+                    <button class="predict-button" id="predictButton" disabled>🔍 Analyze Audio</button>
+                </div>
+            </div>
+            
+            <!-- Results Section -->
+            <div class="results-section">
+                <h2 style="text-align: center; margin-bottom: 25px; color: #333;">Classification Results</h2>
+                <div id="results">
+                    <div class="no-results">
+                        Turn on recording or upload an audio file to see classification results
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Statistics Tab -->
+        <div id="statistics" class="tab-content">
+            <div class="stats-controls">
+                <label for="timePeriod" style="margin-right: 10px; font-weight: 600;">Time Period:</label>
+                <select id="timePeriod" onchange="loadStatistics()">
+                    <option value="7">Last 7 Days</option>
+                    <option value="30" selected>Last 30 Days</option>
+                    <option value="90">Last 90 Days</option>
+                </select>
+                <button onclick="loadStatistics()" style="margin-left: 15px; padding: 8px 20px; background: #667eea; color: white; border: none; border-radius: 20px; cursor: pointer;">🔄 Refresh</button>
+            </div>
+            
+            <!-- Statistics Cards -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <h3>Total Predictions</h3>
+                    <div class="stat-number" id="totalPredictions">0</div>
+                    <div class="stat-label">Classifications made</div>
+                </div>
+                
+                <div class="stat-card">
+                    <h3>Model Accuracy</h3>
+                    <div class="stat-number" id="modelAccuracy">0%</div>
+                    <div class="stat-label">Based on user feedback</div>
+                </div>
+                
+                <div class="stat-card">
+                    <h3>Feedback Received</h3>
+                    <div class="stat-number" id="feedbackCount">0</div>
+                    <div class="stat-label">User validations</div>
+                </div>
+            </div>
+            
+            <!-- Charts -->
+            <div class="chart-container">
+                <h3>Predictions by Category</h3>
+                <div class="chart-wrapper">
+                    <canvas id="categoryChart"></canvas>
+                </div>
+            </div>
+            
+            <div class="chart-container">
+                <h3>Daily Prediction Trends</h3>
+                <div class="chart-wrapper">
+                    <canvas id="trendChart"></canvas>
+                </div>
+            </div>
+            
+            <div class="chart-container">
+                <h3>Confidence Distribution</h3>
+                <div class="chart-wrapper">
+                    <canvas id="confidenceChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize Socket.IO
+        const socket = io();
+        
+        // Audio recording variables
+        let mediaRecorder;
+        let audioChunks = [];
+        let isRecording = false;
+        let recordingInterval;
+        let currentPredictionId = null;
+        
+        // Chart variables
+        let categoryChart, trendChart, confidenceChart;
+        
+        // DOM elements
+        const recordingToggle = document.getElementById('recordingToggle');
+        const statusIndicator = document.getElementById('statusIndicator');
+        const statusText = document.getElementById('statusText');
+        const audioFileInput = document.getElementById('audioFile');
+        const predictButton = document.getElementById('predictButton');
+        const resultsDiv = document.getElementById('results');
+        
+        // Socket event handlers
+        socket.on('connect', function() {
+            console.log('Connected to server');
+        });
+        
+        socket.on('prediction_result', function(data) {
+            displayResult(data);
+        });
+        
+        // Tab switching
+        function showTab(tabName) {
+            // Hide all tabs
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelectorAll('.nav-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Show selected tab
+            document.getElementById(tabName).classList.add('active');
+            event.target.classList.add('active');
+            
+            // Load statistics if statistics tab is selected
+            if (tabName === 'statistics') {
+                loadStatistics();
+            }
+        }
+        
+        // Recording toggle handler
+        recordingToggle.addEventListener('change', function() {
+            if (this.checked) {
+                startRecording();
+            } else {
+                stopRecording();
+            }
+        });
+        
+        // File input handler
+        audioFileInput.addEventListener('change', function() {
+            predictButton.disabled = !this.files.length;
+        });
+        
+        // Predict button handler
+        predictButton.addEventListener('click', function() {
+            const file = audioFileInput.files[0];
+            if (file) {
+                uploadAndPredict(file);
+            }
+        });
+        
+        // Start audio recording
+        async function startRecording() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(stream);
+                
+                mediaRecorder.ondataavailable = function(event) {
+                    audioChunks.push(event.data);
+                };
+                
+                mediaRecorder.onstop = function() {
+                    const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+                    sendAudioToServer(audioBlob);
+                    audioChunks = [];
+                };
+                
+                // Record in 3-second chunks
+                recordingInterval = setInterval(() => {
+                    if (isRecording) {
+                        mediaRecorder.stop();
+                        setTimeout(() => {
+                            if (isRecording) {
+                                mediaRecorder.start();
+                            }
+                        }, 100);
+                    }
+                }, 3000);
+                
+                mediaRecorder.start();
+                isRecording = true;
+                
+                statusIndicator.className = 'status-indicator status-on';
+                statusText.textContent = 'Recording Active - Analyzing Audio...';
+                
+            } catch (error) {
+                console.error('Error starting recording:', error);
+                alert('Could not access microphone. Please check permissions.');
+                recordingToggle.checked = false;
+            }
+        }
+        
+        // Stop audio recording
+        function stopRecording() {
+            isRecording = false;
+            
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                mediaRecorder.stop();
+                mediaRecorder.stream.getTracks().forEach(track => track.stop());
+            }
+            
+            if (recordingInterval) {
+                clearInterval(recordingInterval);
+            }
+            
+            statusIndicator.className = 'status-indicator status-off';
+            statusText.textContent = 'Recording Off';
+        }
+        
+        // Send audio to server for analysis
+        function sendAudioToServer(audioBlob) {
+            const reader = new FileReader();
+            reader.onload = function() {
+                const base64Audio = btoa(
+                    new Uint8Array(reader.result)
+                        .reduce((data, byte) => data + String.fromCharCode(byte), '')
+                );
+                
+                socket.emit('audio_data', { audio: base64Audio });
+            };
+            reader.readAsArrayBuffer(audioBlob);
+        }
+        
+        // Upload file and predict
+        function uploadAndPredict(file) {
+            const formData = new FormData();
+            formData.append('audio', file);
+            
+            // Show loading
+            resultsDiv.innerHTML = '<div class="loading">Analyzing audio file...</div>';
+            
+            fetch('/predict', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                displayResult(data);
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                resultsDiv.innerHTML = '<div class="error">Error analyzing audio file</div>';
+            });
+        }
+        
+        // Display prediction results
+        function displayResult(data) {
+            if (data.error) {
+                resultsDiv.innerHTML = <div class="error">Error: ${data.error}</div>;
+                return;
+            }
+            
+            currentPredictionId = data.prediction_id;
+            const confidencePercent = (data.confidence * 100).toFixed(1);
+            
+            let html = `
+                <div class="result-card">
+                    <div class="result-header">
+                        <div class="predicted-class">${data.predicted_class.replace('_', ' ')}</div>
+                        <div class="confidence">${confidencePercent}% confidence</div>
+                    </div>
+                    
+                    <div class="probabilities">
+                        <h4 style="margin-bottom: 15px;">All Classifications:</h4>
+            `;
+            
+            // Sort probabilities by value (highest first)
+            const sortedProbs = Object.entries(data.probabilities)
+                .sort((a, b) => b[1] - a[1]);
+            
+            sortedProbs.forEach(([className, probability]) => {
+                const percent = (probability * 100).toFixed(1);
+                const width = probability * 100;
+                
+                html += `
+                    <div class="probability-item">
+                        <span style="text-transform: capitalize; min-width: 100px;">
+                            ${className.replace('_', ' ')}
+                        </span>
+                        <div class="probability-bar">
+                            <div class="probability-fill" style="width: ${width}%"></div>
+                        </div>
+                        <span style="min-width: 50px; text-align: right;">${percent}%</span>
+                    </div>
+                `;
+            });
+            
+            html += `
+                    </div>
+                    
+                    <!-- Feedback Section -->
+                    <div class="feedback-section">
+                        <div class="feedback-question">Was this prediction correct?</div>
+                        <div class="feedback-buttons">
+                            <button class="feedback-btn correct" onclick="submitFeedback('correct')">
+                                ✅ Correct
+                            </button>
+                            <button class="feedback-btn incorrect" onclick="showIncorrectOptions()">
+                                ❌ Incorrect
+                            </button>
+                        </div>
+                        
+                        <div id="incorrectOptions" class="correct-class-selector hidden">
+                            <p style="margin-bottom: 10px;">What was the correct classification?</p>
+                            <select id="correctClassSelect">
+                                <option value="">Select correct class...</option>
+            `;
+            
+            // Add all possible classes as options
+            sortedProbs.forEach(([className]) => {
+                if (className !== data.predicted_class) {
+                    html += <option value="${className}">${className.replace('_', ' ')}</option>;
+                }
+            });
+            
+            html += `
+                            </select>
+                            <button class="feedback-btn" onclick="submitIncorrectFeedback()" style="background: #667eea; color: white; margin-left: 10px;">
+                                Submit
+                            </button>
+                        </div>
+                        
+                        <div id="feedbackResult"></div>
+                    </div>
+                    
+                    <div class="timestamp">Analyzed at: ${data.timestamp || new Date().toLocaleString()}</div>
+                </div>
+            `;
+            
+            resultsDiv.innerHTML = html;
+        }
+        
+        // Feedback functions
+        function submitFeedback(feedbackType) {
+            if (!currentPredictionId) return;
+            
+            fetch('/feedback', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    prediction_id: currentPredictionId,
+                    feedback_type: feedbackType
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    showFeedbackSuccess('Thank you for your feedback!');
+                    disableFeedbackButtons();
+                }
+            })
+            .catch(error => {
+                console.error('Error submitting feedback:', error);
+            });
+        }
+        
+        function showIncorrectOptions() {
+            document.getElementById('incorrectOptions').classList.remove('hidden');
+        }
+        
+        function submitIncorrectFeedback() {
+            const correctClass = document.getElementById('correctClassSelect').value;
+            if (!correctClass || !currentPredictionId) return;
+            
+            fetch('/feedback', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    prediction_id: currentPredictionId,
+                    feedback_type: 'incorrect',
+                    correct_class: correctClass
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    showFeedbackSuccess('Thank you for the correction! This will help improve the model.');
+                    disableFeedbackButtons();
+                }
+            })
+            .catch(error => {
+                console.error('Error submitting feedback:', error);
+            });
+        }
+        
+        function showFeedbackSuccess(message) {
+            document.getElementById('feedbackResult').innerHTML = 
+                <div class="feedback-success">${message}</div>;
+        }
+        
+        function disableFeedbackButtons() {
+            document.querySelectorAll('.feedback-btn').forEach(btn => {
+                btn.disabled = true;
+                btn.style.opacity = '0.6';
+            });
+        }
+        
+        // Statistics functions
+        function loadStatistics() {
+            const days = document.getElementById('timePeriod').value;
+            
+            fetch(/statistics?days=${days})
+                .then(response => response.json())
+                .then(data => {
+                    updateStatisticsDisplay(data);
+                })
+                .catch(error => {
+                    console.error('Error loading statistics:', error);
+                });
+        }
+        
+        function updateStatisticsDisplay(stats) {
+            // Update stat cards
+            document.getElementById('totalPredictions').textContent = stats.total_predictions;
+            document.getElementById('modelAccuracy').textContent = ${stats.accuracy}%;
+            document.getElementById('feedbackCount').textContent = stats.feedback_count;
+            
+            // Update charts
+            updateCategoryChart(stats.predictions_by_class);
+            updateTrendChart(stats.daily_counts);
+            updateConfidenceChart(stats.confidence_distribution);
+        }
+        
+        function updateCategoryChart(data) {
+            const ctx = document.getElementById('categoryChart').getContext('2d');
+            
+            if (categoryChart) {
+                categoryChart.destroy();
+            }
+            
+            const labels = Object.keys(data).map(key => key.replace('_', ' '));
+            const values = Object.values(data);
+            
+            categoryChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: values,
+                        backgroundColor: [
+                            '#FF6384',
+                            '#36A2EB',
+                            '#FFCE56',
+                            '#4BC0C0',
+                            '#9966FF',
+                            '#FF9F40'
+                        ]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        }
+                    }
+                }
+            });
+        }
+        
+        function updateTrendChart(data) {
+            const ctx = document.getElementById('trendChart').getContext('2d');
+            
+            if (trendChart) {
+                trendChart.destroy();
+            }
+            
+            const labels = data.map(item => new Date(item[0]).toLocaleDateString());
+            const values = data.map(item => item[1]);
+            
+            trendChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Daily Predictions',
+                        data: values,
+                        borderColor: '#667eea',
+                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+        
+        function updateConfidenceChart(data) {
+            const ctx = document.getElementById('confidenceChart').getContext('2d');
+            
+            if (confidenceChart) {
+                confidenceChart.destroy();
+            }
+            
+            const labels = Object.keys(data);
+            const values = Object.values(data);
+            
+            confidenceChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Number of Predictions',
+                        data: values,
+                        backgroundColor: [
+                            '#dc3545',  // Low
+                            '#ffc107',  // Medium
+                            '#28a745',  // High
+                            '#007bff'   // Very High
+                        ]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Add some helpful information about the classifications
+        function showClassificationInfo() {
+            const info = `
+                <div style="background: #f8f9fa; padding: 20px; border-radius: 10px; margin-top: 20px; border-left: 4px solid #667eea;">
+                    <h4 style="color: #333; margin-bottom: 10px;">Classification Categories:</h4>
+                    <ul style="color: #666; line-height: 1.6;">
+                        <li><strong>Hungry:</strong> Baby needs feeding</li>
+                        <li><strong>Tired:</strong> Baby is sleepy or overstimulated</li>
+                        <li><strong>Belly Pain:</strong> Digestive discomfort or colic</li>
+                        <li><strong>Burping:</strong> Baby needs to burp</li>
+                        <li><strong>Not Cry:</strong> Background noise or other sounds</li>
+                    </ul>
+                    <p style="margin-top: 15px; font-size: 0.9em; color: #666;">
+                        <strong>💡 Tip:</strong> Your feedback helps improve the model's accuracy. 
+                        Low confidence predictions with corrections are used for automatic retraining.
+                    </p>
+                </div>
+            `;
+            
+            document.querySelector('#classifier .results-section').insertAdjacentHTML('beforeend', info);
+        }
+        
+        // Initialize on page load
+        window.addEventListener('load', function() {
+            showClassificationInfo();
+        });
+        
+        // Handle browser compatibility
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            alert('Your browser does not support audio recording. Please use a modern browser.');
+            recordingToggle.disabled = true;
+        }
+    </script>
+</body>
+</html>
