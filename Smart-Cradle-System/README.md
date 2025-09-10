@@ -77,13 +77,6 @@ An intelligent IoT-based baby monitoring system that combines artificial intelli
 - **User Feedback System**
 - **Mobile-responsive Design**
 
-## 🔬 Technical Documentation
-
-This repository includes:
-- **System Design** - Architecture and component details
-- **Implementation Guide** - Setup and configuration instructions
-- **Code Documentation** - Detailed code comments and explanations
-
 ## 🛡️ Safety Features
 
 - **Environmental Monitoring** - Temperature & humidity tracking
@@ -109,4 +102,5 @@ The system includes:
 - **User Experience Testing** - Interface usability
 
 **🍼 Making infant care technology accessible and intelligent.**
+
 
